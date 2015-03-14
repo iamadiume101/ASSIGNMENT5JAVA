@@ -23,6 +23,8 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.json.Json;
+import javax.json.JsonArrayBuilder;
+import javax.json.JsonObjectBuilder;
 import javax.json.JsonValue;
 import javax.json.stream.JsonParser;
 import javax.servlet.annotation.WebServlet;
@@ -66,8 +68,8 @@ public class SampleServlet {
     }
 
     private String getResults(String query, String... params) {
-        StringBuilder sb = new StringBuilder();
-        String xxx = "";
+        JsonArrayBuilder productArray = Json.createArrayBuilder();
+        String xxx = new String();
         try (Connection conn = Credentials.getConnection()) {
             PreparedStatement pstmt = conn.prepareStatement(query);
             for (int i = 1; i <= params.length; i++) {
@@ -76,23 +78,25 @@ public class SampleServlet {
             ResultSet rs = pstmt.executeQuery();
             List list = new LinkedList();
             while (rs.next()) {
+                       JsonObjectBuilder jsonobj = Json.createObjectBuilder()
+                        .add("productID", rs.getInt("productID"))
+                        .add("Name", rs.getString("Name"))
+                        .add("Description", rs.getString("Description"))
+                        .add("Quantity", rs.getInt("Quantity"));
 
-                Map ad = new LinkedHashMap();
-                ad.put("productID", rs.getInt("productID"));
-                ad.put("Name", rs.getString("Name"));
-                ad.put("Description", rs.getString("Description"));
-                ad.put("Quantity", rs.getInt("Quantity"));
-                list.add(ad);
+                xxx = jsonobj.build().toString();
+                productArray.add(jsonobj);
             }
-            xxx = JSONValue.toJSONString(list);
-
         } catch (SQLException ex) {
             Logger.getLogger(SampleServlet.class.getName()).log(Level.SEVERE, null, ex);
         }
-        return xxx.replace("},", "},\n");
-
+          if (params.length == 0) {
+            xxx = productArray.build().toString();
+        }
+        return xxx;
     }
-
+    
+        
     @POST
     @Consumes("application/json")
     public void doPost(String st) {
@@ -122,8 +126,8 @@ public class SampleServlet {
         String Description = ad.get("Description");
         String Quantity = ad.get("Quantity");
         doUpdate("INSERT INTO PRODUCT ( Name, Description, Quantity) values ( ?, ?, ?)", Name1, Description, Quantity);
-
     }
+   
 
     private int doUpdate(String query, String... params) {
         int numChanges = 0;
@@ -138,7 +142,7 @@ public class SampleServlet {
         }
         return numChanges;
     }
-
+    
     @PUT
     @Path("{productID}")
     @Consumes("application/json")
